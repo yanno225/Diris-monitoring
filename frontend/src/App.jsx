@@ -19,10 +19,11 @@ ChartJS.register(
 // CONFIGURATION
 // ─────────────────────────────────────────────
 
-// Avec le proxy Vite, /api → http://localhost:8080
-// et /ws → ws://localhost:8080/ws
-const API = '/api'
-const WS = `ws://${window.location.hostname}:8080/ws`
+// En dev : proxy Vite vers localhost:8080
+// En prod (Vercel) : variable d'environnement VITE_API_URL
+const API = import.meta.env.VITE_API_URL || '/api'
+const WS_BASE = import.meta.env.VITE_WS_URL || `ws://${window.location.hostname}:8080`
+const WS = `${WS_BASE}/ws`
 
 // ─────────────────────────────────────────────
 // LISTE DES PARAMÈTRES DU DIRIS A40
