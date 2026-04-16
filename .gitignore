@@ -1,0 +1,24 @@
+# Secrets
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+*.egg-info/
+
+# Node
+frontend/node_modules/
+
+# Fichiers générés localement
+backend/export_diris*.json
+backend/export_diris*.csv
+backend/export_diris*.xlsx
+backend/graphiques_diris*.html
+
+# OS
+.DS_Store
+Thumbs.db
