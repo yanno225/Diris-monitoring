@@ -293,6 +293,108 @@ class GestionnaireDB:
             self.connecte = False
             print("  ✓ Connexion Atlas fermée.")
 
+    # ── Historique par période (timestamps début/fin) ──────────────
+
+    def get_historique_periode(self, champ: str, ts_debut: float, ts_fin: float, limite: int = 500):
+        """
+        Récupère l'évolution d'un paramètre entre deux timestamps précis.
+        
+        Paramètres :
+          - champ    : le champ MongoDB (ex: "cos_phi", "tensions.u12")
+          - ts_debut : timestamp UNIX de début
+          - ts_fin   : timestamp UNIX de fin
+          - limite   : nombre max de points retournés
+        """
+        if not self.connecte:
+            return []
+        try:
+            filtre = {
+                "timestamp": {"$gte": ts_debut, "$lte": ts_fin},
+                champ: {"$exists": True, "$ne": None},
+            }
+
+            count = self.collection.count_documents(filtre)
+            if count == 0:
+                return []
+
+            if count <= limite:
+                curseur = self.collection.find(
+                    filtre,
+                    {"_id": 0, "timestamp": 1, "heure_abidjan": 1, champ: 1},
+                    sort=[("timestamp", ASCENDING)],
+                )
+                return [
+                    {
+                        "timestamp": doc["timestamp"],
+                        "heure_abidjan": doc.get("heure_abidjan", ""),
+                        "valeur": _extraire_champ(doc, champ),
+                    }
+                    for doc in curseur
+                ]
+
+            # Downsampling
+            duree = ts_fin - ts_debut
+            bucket_sec = duree / limite
+
+            pipeline = [
+                {"$match": filtre},
+                {"$group": {
+                    "_id": {"$floor": {"$divide": ["$timestamp", bucket_sec]}},
+                    "timestamp": {"$avg": "$timestamp"},
+                    "valeur": {"$avg": f"${champ}"},
+                }},
+                {"$sort": {"_id": 1}},
+            ]
+
+            resultats = []
+            for doc in self.collection.aggregate(pipeline):
+                v = doc.get("valeur")
+                resultats.append({
+                    "timestamp": doc["timestamp"],
+                    "heure_abidjan": "",
+                    "valeur": round(v, 4) if v is not None else None,
+                })
+            return resultats
+
+        except Exception as e:
+            print(f"  ✗ Erreur get_historique_periode : {e}")
+            return []
+
+    # ── Statistiques par période (timestamps début/fin) ────────────
+
+    def get_stats_periode(self, champ: str, ts_debut: float, ts_fin: float):
+        """
+        Calcule Min, Max, Moyenne d'un paramètre entre deux timestamps.
+        """
+        if not self.connecte:
+            return {"min": None, "max": None, "moyenne": None}
+        try:
+            pipeline = [
+                {"$match": {
+                    "timestamp": {"$gte": ts_debut, "$lte": ts_fin},
+                    champ: {"$exists": True, "$ne": None},
+                }},
+                {"$group": {
+                    "_id": None,
+                    "minimum": {"$min": f"${champ}"},
+                    "maximum": {"$max": f"${champ}"},
+                    "moyenne": {"$avg": f"${champ}"},
+                    "compte": {"$sum": 1},
+                }},
+            ]
+            r = list(self.collection.aggregate(pipeline))
+            if not r:
+                return {"min": None, "max": None, "moyenne": None, "nb_points": 0}
+            return {
+                "min": round(r[0]["minimum"], 3),
+                "max": round(r[0]["maximum"], 3),
+                "moyenne": round(r[0]["moyenne"], 3),
+                "nb_points": r[0]["compte"],
+            }
+        except Exception as e:
+            print(f"  ✗ Erreur get_stats_periode : {e}")
+            return {"min": None, "max": None, "moyenne": None}        
+
 
 # ─────────────────────────────────────────────
 # FONCTION UTILITAIRE
