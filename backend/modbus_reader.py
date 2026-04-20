@@ -1,5 +1,3 @@
-
-
 from pymodbus.client import ModbusSerialClient
 from pymodbus.exceptions import ModbusException
 import time
@@ -36,6 +34,7 @@ REGISTRES = {
     "puissance_reactive" : (50538, 100,  "kVAR"),
     "puissance_apparente": (50540, 100,  "kVA"),
     "cos_phi"            : (50542, 1000, ""),
+    "energie_active"     : (50770, 100,  "kWh"),
 }
 
 
@@ -85,7 +84,10 @@ def convertion_32bits(registre_haut, registre_bas, est_signe=False):
 
 def lire_toutes_mesures(client):
     """
-    Lit tous les registres de la table C550 en une seule requête.
+    Lit tous les registres du Diris A40.
+    - Bloc 1 (C550) : tensions + fréquence
+    - Bloc 2 (C550) : courants + puissances + cos_phi
+    - Bloc 3 (C650) : énergie active +
     Retourne un dictionnaire avec toutes les mesures.
     Retourne None en cas d'erreur.
     """
@@ -148,6 +150,17 @@ def lire_toutes_mesures(client):
         # Facteur de puissance (signé)
         mesures["cos_phi"]             = decode(50542, 1000, est_signe=True)
 
+        # ─── Bloc 3 : Énergie active + (table C650, adresse 50770) ───
+        BLOC3_DEBUT = 50770
+        rep3 = client.read_holding_registers(address=BLOC3_DEBUT, count=2, slave=SLAVE_ID)
+        if rep3.isError():
+            print(f"  ⚠ Erreur bloc 3 (énergie) : {rep3}")
+            mesures["energie_active"] = None
+        else:
+            regs3 = rep3.registers
+            valeur_brute = convertion_32bits(regs3[0], regs3[1], est_signe=False)
+            mesures["energie_active"] = round(valeur_brute / 100, 3)
+
         return mesures
 
     except Exception as e:
@@ -157,7 +170,7 @@ def lire_toutes_mesures(client):
 
 
 
-def afficher_mesures(mesures):  # ✅ BUG 2 CORRIGÉ : était "affciher_mesures"
+def afficher_mesures(mesures):
     """Affiche toutes les mesures dans le terminal."""
     print(f"  {'Paramètre':<25} {'Valeur':>12}  Unité")
     print("  " + "─" * 45)
@@ -178,6 +191,7 @@ def afficher_mesures(mesures):  # ✅ BUG 2 CORRIGÉ : était "affciher_mesures"
         ("Puissance réactive",   "puissance_reactive",   "kVAR"),
         ("Puissance apparente",  "puissance_apparente",  "kVA"),
         ("Facteur de puissance", "cos_phi",              ""),
+        ("Énergie active",       "energie_active",       "kWh"),
     ]
 
     for label, cle, unite in params:
@@ -189,7 +203,7 @@ def afficher_mesures(mesures):  # ✅ BUG 2 CORRIGÉ : était "affciher_mesures"
 
 
 
-def demarrer_lecture(intervalle_secondes=5):  # ✅ BUG 3 CORRIGÉ : était "itervalle"
+def demarrer_lecture(intervalle_secondes=5):
     """
     Boucle de lecture infinie pour tester le script directement.
     En production, c'est api.py qui appelle lire_toutes_mesures().
@@ -208,8 +222,6 @@ def demarrer_lecture(intervalle_secondes=5):  # ✅ BUG 3 CORRIGÉ : était "ite
     # Créer le client
     client = creer_client()
 
-    # ✅ BUG 1 CORRIGÉ : le return était mal placé avant
-    # On sort UNIQUEMENT si la connexion a échoué
     if client is None:
         print("  ✗ Arrêt — connexion impossible.")
         return
@@ -225,7 +237,7 @@ def demarrer_lecture(intervalle_secondes=5):  # ✅ BUG 3 CORRIGÉ : était "ite
             mesures = lire_toutes_mesures(client)
 
             if mesures:
-                afficher_mesures(mesures)  # ✅ nom correct
+                afficher_mesures(mesures)
             else:
                 print("  ✗ Aucune mesure — tentative de reconnexion...")
                 client.close()
@@ -235,7 +247,7 @@ def demarrer_lecture(intervalle_secondes=5):  # ✅ BUG 3 CORRIGÉ : était "ite
                     break
 
             print(f"\n  [Prochaine lecture dans {intervalle_secondes}s...]")
-            time.sleep(intervalle_secondes)  # ✅ BUG 3 CORRIGÉ : nom correct
+            time.sleep(intervalle_secondes)
 
     except KeyboardInterrupt:
         print("\n\n  ⏹ Arrêt demandé (Ctrl+C)")

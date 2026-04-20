@@ -22,6 +22,7 @@ CHAMPS_ATTENDUS = [
     "courant_i1",  "courant_i2",  "courant_i3", "courant_in",
     "puissance_active", "puissance_reactive", "puissance_apparente",
     "cos_phi",
+    "energie_active",
 ]
 
 
@@ -148,6 +149,7 @@ class GestionnaireDB:
                 # Mesures uniques
                 "cos_phi"  : mesures.get("cos_phi"),
                 "frequence": mesures.get("frequence"),
+                "energie_active": mesures.get("energie_active"),
 
                 # Qualité de la lecture
                 "qualite": {
@@ -155,6 +157,7 @@ class GestionnaireDB:
                     "nb_champs_recus" : len(CHAMPS_ATTENDUS) - len(manquants),
                     "lecture_complete": len(manquants) == 0,
                 },
+                
             }
 
             # Insérer dans Atlas

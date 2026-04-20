@@ -40,6 +40,7 @@ const PARAMS = [
     { id: 'kvar', nom: 'kVAR (Réact.)', icone: '◎', path: 'puissances.reactive', unite: 'kVAR', dec: 2, seuils: { ok: [0, 50], warn: [0, 80] } },
     { id: 'kva', nom: 'kVA  (Appar.)', icone: '◈', path: 'puissances.apparente', unite: 'kVA', dec: 2, seuils: { ok: [0, 160], warn: [0, 210] } },
     { id: 'freq', nom: 'Fréquence', icone: '∿', path: 'frequence', unite: 'Hz', dec: 2, seuils: { ok: [49.5, 50.5], warn: [48.5, 51.5] } },
+    { id: 'energie', nom: 'Énergie (kWh)', icone: '⚡', path: 'energie_active', unite: 'kWh', dec: 2, seuils: { ok: [0, 999999], warn: [0, 999999] } },
 ]
 
 // ─────────────────────────────────────────────
